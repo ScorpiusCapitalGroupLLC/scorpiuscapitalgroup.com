@@ -60,34 +60,6 @@
             --glow-outer: rgba(245, 243, 238, 0);
         }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #0c0f0d;        /* Deep Obsidian Green-Black */
-                --ink: #f4f1e9;       /* Warm Platinum (softer than pure white) */
-                --ink-muted: rgba(244, 241, 233, 0.48);
-                --gold: #cba45c;      /* Refined Champagne Gold */
-                --gold-light: #ecd49a;
-                --gold-text: #d8b878;
-                --deep: #e4e7e3;      /* Soft platinum menu links */
-                --deep-light: #9aa39c; /* Muted sage gray */
-                --deep-muted: rgba(228, 231, 227, 0.42);
-                
-                /* Canvas & vignette specific variables */
-                --chart-grid: rgba(228, 231, 227, 0.06);
-                --chart-grid-text: rgba(216, 184, 120, 0.8);
-                --chart-badge-bg: #16201a; 
-                --chart-badge-text: #f4f1e9;
-                --chart-crosshair: rgba(228, 231, 227, 0.14);
-                --chart-price-line: rgba(216, 184, 120, 0.5);
-                --vignette-top: rgba(12, 15, 13, 0.78);
-                --dropdown-bg: rgba(14, 18, 15, 0.96);
-                --dropdown-hover: rgba(216, 184, 120, 0.14);
-                --header-bg: rgba(12, 15, 13, 0.92);
-                --header-bg-fade: rgba(12, 15, 13, 0);
-                --glow-outer: rgba(12, 15, 13, 0);
-            }
-        }
-
         * { box-sizing: border-box; }
         html, body { height: 100%; }
         body {
@@ -204,7 +176,7 @@
         .docs-arrow { width: 13px; height: 13px; transition: transform .3s cubic-bezier(.16,1,.3,1); }
         .docs-link:hover .docs-arrow { transform: translateX(3px); }
 
-        /* ===== TradingView-style Top-Left Ticker (Vertical Double-Row Value Display) ===== */
+        /* ===== Top-Left Ticker ===== */
         .hero-center {
             position: absolute;
             top: 86px;
@@ -212,61 +184,41 @@
             text-align: left;
             pointer-events: none;
         }
-        /* ===== Standard Top-Left Ticker (No Card Background) ===== */
-        .ticker-container-plain {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            background: transparent;
-            border: none;
-            box-shadow: none;
-            padding: 0;
-            width: fit-content;
-        }
         
         .ticker-header {
             display: flex;
             align-items: center;
-            gap: 10px;
-            border-bottom: 1px solid rgba(44, 58, 48, 0.06);
-            padding-bottom: 4px;
-        }
-
-        .tv-symbol {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--ink);
-            letter-spacing: 0.02em;
-        }
-        .tv-tf {
-            font-size: 9px;
-            font-weight: 700;
-            color: var(--gold-text);
-            background: rgba(154, 125, 63, 0.1);
-            padding: 1px 5px;
-            border-radius: 3px;
-            text-transform: uppercase;
+            gap: 8px;
+            padding: 0;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            width: fit-content;
         }
 
         .live-dot-container {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 4px;
-            margin-left: 20px;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: rgba(62, 107, 78, 0.16);
+            flex-shrink: 0;
         }
         .live-dot {
-            width: 6px;
-            height: 6px;
+            width: 7px;
+            height: 7px;
             background-color: #3e6b4e;
             border-radius: 50%;
-            display: inline-block;
+            display: block;
             box-shadow: 0 0 0 0 rgba(62, 107, 78, 0.7);
             animation: pulse-dot 1.8s infinite;
         }
         @keyframes pulse-dot {
             0% {
                 transform: scale(0.95);
-                box-shadow: 0 0 0 0 rgba(62, 107, 78, 0.8);
+                box-shadow: 0 0 0 0 rgba(62, 107, 78, 0.7);
             }
             70% {
                 transform: scale(1);
@@ -277,33 +229,17 @@
                 box-shadow: 0 0 0 0 rgba(62, 107, 78, 0);
             }
         }
-        .live-text {
-            font-size: 8px;
-            font-weight: 700;
-            color: #3e6b4e;
-            letter-spacing: 0.05em;
-        }
 
-        .ticker-row-v {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            line-height: 1.4;
-        }
-
-        .ticker-label-v {
+        .ticker-label-assets {
+            font-size: 11px;
             font-weight: 700;
             color: var(--deep-muted);
             text-transform: uppercase;
-            font-size: 9.5px;
-            letter-spacing: 0.04em;
-            width: 55px; /* Fixed width to align values */
-            display: inline-block;
+            letter-spacing: 0.05em;
         }
 
         .ticker-val-v {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 700;
             color: var(--ink);
             font-variant-numeric: tabular-nums;
@@ -311,19 +247,11 @@
         }
 
         .ticker-rate-v {
-            font-size: 10.5px;
+            font-size: 11.5px;
             font-weight: 500;
             color: var(--gold-text);
-        }
-
-        .ticker-trend-v {
-            font-size: 10.5px;
-            font-weight: 600;
-        }
-
-        .ticker-param-v {
-            font-size: 10px;
-            color: var(--deep-muted);
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: 'tnum' 1;
         }
 
         /* Tooltip style removed */
@@ -397,9 +325,11 @@
             border: none;
             border-radius: 8px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-            width: 140px;
+            width: 96px;
             max-height: 280px;
             overflow-y: auto;
+            scrollbar-width: none; /* Hide scrollbar for Firefox */
+            -ms-overflow-style: none; /* Hide scrollbar for IE/Edge */
             z-index: 100;
             display: none;
             opacity: 0;
@@ -412,24 +342,19 @@
             transform: translateY(0);
         }
 
-        /* Scrollbar Styling */
+        /* Scrollbar Hidden */
         .dropdown-menu-panel::-webkit-scrollbar {
-            width: 4px;
-        }
-        .dropdown-menu-panel::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .dropdown-menu-panel::-webkit-scrollbar-thumb {
-            background: rgba(44, 58, 48, 0.15);
-            border-radius: 2px;
+            display: none;
+            width: 0;
+            height: 0;
         }
 
         .dropdown-scroll-container {
-            padding: 4px;
+            padding: 3px;
         }
 
         .dropdown-group {
-            margin-bottom: 6px;
+            margin-bottom: 5px;
         }
         .dropdown-group:last-child {
             margin-bottom: 0;
@@ -441,7 +366,7 @@
             color: var(--deep-muted);
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            padding: 2px 6px;
+            padding: 2px 4px;
             border-bottom: 1px solid var(--chart-grid);
             margin-bottom: 2px;
             pointer-events: none;
@@ -451,13 +376,14 @@
             font-size: 11px;
             font-weight: 600;
             color: var(--deep);
-            padding: 4px 8px;
+            padding: 3px 5px;
             border-radius: 4px;
             cursor: pointer;
             transition: background 0.12s, color 0.12s;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            white-space: nowrap;
         }
         .dropdown-option:hover {
             background: var(--dropdown-hover);
@@ -477,7 +403,7 @@
         footer {
             position: absolute; bottom: 0; left: 0; width: 100%;
             min-height: 40px;
-            display: flex; align-items: center;
+            display: flex; align-items: center; justify-content: space-between;
             padding: 0 24px;
             border-top: 1px solid rgba(44,58,48,0.2);
             color: var(--deep-light);
@@ -485,6 +411,15 @@
             letter-spacing: 0.14em;
         }
         footer .accent { color: var(--gold-text); }
+        .footer-time {
+            margin-left: auto;
+            font-size: inherit;
+            font-weight: 400;
+            color: var(--deep-light);
+            letter-spacing: 0.12em;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: 'tnum' 1;
+        }
         .footer-links {
             display: flex;
             align-items: center;
@@ -554,6 +489,9 @@
                 padding: 12px;
                 gap: 8px;
                 text-align: center;
+            }
+            .footer-time {
+                margin-left: 0;
             }
             .footer-links {
                 margin-left: 0;
@@ -663,27 +601,20 @@
 
     <!-- TradingView-style Ticker Header -->
     <div class="hero-center z20">
-        <div class="ticker-container-plain">
-            <div class="ticker-header">
-                <span class="tv-symbol font-display">SCOP LLC</span>
-                <span style="font-weight: 700; color: var(--deep-muted); text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.04em; margin-left: 10px;">TOTAL ASSETS:</span>
-                <span class="ticker-val-v" id="market-cap-ticker">0</span>
-                <span class="ticker-rate-v" id="rate-ticker">0/s</span>
-                <div class="live-dot-container" style="margin-left: 15px;">
-                    <span class="live-dot"></span>
-                </div>
+        <div class="ticker-header">
+            <div class="live-dot-container">
+                <span class="live-dot"></span>
             </div>
-            <div class="ticker-row-v">
-                <span class="ticker-label-v">EMA (20):</span>
-                <span class="ticker-val-v" id="ema-val">--</span>
-                <span class="ticker-param-v">close</span>
-            </div>
+            <span class="ticker-label-assets font-display">TOTAL ASSETS:</span>
+            <span class="ticker-val-v" id="market-cap-ticker">0</span>
+            <span class="ticker-rate-v" id="rate-ticker">0/s</span>
         </div>
     </div>
 
     <!-- Footer -->
     <footer class="z50">
         <span>&copy; 2026 <span class="accent">Scorpius Capital Group LLC</span>. All rights reserved.</span>
+        <span class="footer-time font-mono" id="utc-clock"></span>
     </footer>
 </div>
 
@@ -1596,6 +1527,23 @@ document.addEventListener('mousemove', (e) => {
     const y = (e.clientY / window.innerHeight - 0.5) * 22;
     glowEl.style.transform = `translate(${x}px, ${y}px)`;
 });
+
+// Real-time UTC Clock
+function updateUtcClock() {
+    const el = document.getElementById('utc-clock');
+    if (!el) return;
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const y = now.getUTCFullYear();
+    const m = pad(now.getUTCMonth() + 1);
+    const d = pad(now.getUTCDate());
+    const hh = pad(now.getUTCHours());
+    const mm = pad(now.getUTCMinutes());
+    const ss = pad(now.getUTCSeconds());
+    el.textContent = `${y}-${m}-${d} ${hh}:${mm}:${ss} UTC`;
+}
+updateUtcClock();
+setInterval(updateUtcClock, 1000);
 </script>
 </body>
 </html>
