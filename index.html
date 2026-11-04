@@ -91,9 +91,7 @@
         .z0  { z-index: 0; }
         .z5  { z-index: 5; }
         .z10 { z-index: 10; }
-        .z12 { z-index: 12; }
         .z20 { z-index: 20; }
-        .z40 { z-index: 40; }
         .z50 { z-index: 50; }
 
         /* ===== Top Metal Gold Hairline ===== */
@@ -151,30 +149,6 @@
             letter-spacing: 0.02em; white-space: nowrap;
             color: var(--ink);
         }
-
-        /* Docs Link: Flat text + gold underline hover transition, removed border box */
-        .docs-link {
-            position: relative;
-            display: inline-flex; align-items: center; gap: 7px;
-            padding: 4px 2px;
-            font-size: 12px; font-weight: 500;
-            letter-spacing: 0.12em; text-transform: uppercase;
-            text-decoration: none;
-            color: var(--deep);
-            transition: color .3s ease;
-        }
-        .docs-link::after {
-            content: "";
-            position: absolute; left: 0; bottom: 0;
-            width: 100%; height: 1px;
-            background: var(--gold);
-            transform: scaleX(0); transform-origin: left;
-            transition: transform .35s cubic-bezier(.16,1,.3,1);
-        }
-        .docs-link:hover { color: var(--gold-text); }
-        .docs-link:hover::after { transform: scaleX(1); }
-        .docs-arrow { width: 13px; height: 13px; transition: transform .3s cubic-bezier(.16,1,.3,1); }
-        .docs-link:hover .docs-arrow { transform: translateX(3px); }
 
         /* ===== Top-Left Ticker ===== */
         .hero-center {
@@ -254,8 +228,6 @@
             font-feature-settings: 'tnum' 1;
         }
 
-        /* Tooltip style removed */
-
         /* ===== TradingView-style Top-Right Timeframe Selection Dropdown ===== */
         .chart-controls {
             position: absolute;
@@ -269,13 +241,6 @@
             padding: 4px 0;
             box-shadow: none;
             z-index: 50;
-        }
-        .control-label {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--deep-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
         }
         /* ===== Custom Dropdown Style ===== */
         .custom-dropdown {
@@ -353,25 +318,6 @@
             padding: 3px;
         }
 
-        .dropdown-group {
-            margin-bottom: 5px;
-        }
-        .dropdown-group:last-child {
-            margin-bottom: 0;
-        }
-
-        .dropdown-group-title {
-            font-size: 8px;
-            font-weight: 700;
-            color: var(--deep-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            padding: 2px 4px;
-            border-bottom: 1px solid var(--chart-grid);
-            margin-bottom: 2px;
-            pointer-events: none;
-        }
-
         .dropdown-option {
             font-size: 11px;
             font-weight: 600;
@@ -420,31 +366,11 @@
             font-variant-numeric: tabular-nums;
             font-feature-settings: 'tnum' 1;
         }
-        .footer-links {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-left: auto;
-        }
-        .footer-links a {
-            color: var(--deep-light);
-            text-decoration: none;
-            transition: color 0.2s;
-            font-weight: 500;
-        }
-        .footer-links a:hover {
-            color: var(--gold-text);
-        }
-        .footer-links .divider {
-            color: rgba(44, 58, 48, 0.2);
-            user-select: none;
-        }
 
         /* ===== Responsive Layouts ===== */
         @media (min-width: 768px) {
             header { padding: 32px 35px 32px 48px; }
             .brand { font-size: 24px; }
-            .docs-link { font-size: 14px; }
             footer { padding: 0 48px; font-size: 12px; }
         }
         @media (max-width: 768px) {
@@ -467,7 +393,6 @@
                 text-overflow: ellipsis;
                 min-width: 0;
             }
-            .docs-link { flex-shrink: 0; }
             .hero-center {
                 top: 60px;
                 left: 14px;
@@ -493,16 +418,9 @@
             .footer-time {
                 margin-left: 0;
             }
-            .footer-links {
-                margin-left: 0;
-                justify-content: center;
-                flex-wrap: wrap;
-                gap: 8px;
-            }
         }
         @media (prefers-reduced-motion: reduce) {
             .hero-glow-container { animation: none; }
-            .docs-link::after, .docs-arrow { transition: none; }
         }
     </style>
 </head>
@@ -519,8 +437,6 @@
 
     <!-- Noise Texture -->
     <div class="layer z5 grain"></div>
-
-    <!-- Hover tooltip (Removed) -->
 
     <!-- Top & Bottom Vignette Fade -->
     <div class="layer z10 vignette"></div>
@@ -657,44 +573,16 @@ let liveJitter = 0; // Live jitter offset
 
 function getIntervalMs(tf) {
     switch (tf) {
-        // Ticks
-        case '1T': return 800;      // 1 Tick (average approx 800ms)
-        case '10T': return 8000;    // 10 Ticks (average approx 8s)
-        case '100T': return 80000;  // 100 Ticks (average approx 80s)
-        case '1000T': return 800000; // 1000 Ticks (average approx 800s)
-        // Seconds
         case '1s': return 1000;
-        case '5s': return 5000;
-        case '10s': return 10000;
-        case '15s': return 15000;
-        case '30s': return 30000;
-        case '45s': return 45000;
-        // Minutes
         case '1m': return 60000;
-        case '2m': return 120000;
-        case '3m': return 180000;
         case '5m': return 300000;
-        case '10m': return 600000;
-        case '15m': return 900000;
-        case '30m': return 1800000;
-        case '45m': return 2700000;
-        // Hours
         case '1h': return 3600000;
-        case '2h': return 7200000;
-        case '3h': return 10800000;
         case '4h': return 14400000;
-        // Days
         case '1d': return 86400000;
         case '1w': return 604800000;
-        case '1mo': return 2592000000;  // 30Days
-        case '3mo': return 7776000000;  // 90Days
-        case '6mo': return 15552000000; // 180Days
-        case '12mo': return 31536000000; // 365Days
-        // Range
-        case '1R': return 1000;
-        case '10R': return 10000;
-        case '100R': return 100000;
-        case '1000R': return 1000000;
+        case '1mo': return 2592000000;  // 30 Days
+        case '6mo': return 15552000000; // 180 Days
+        case '12mo': return 31536000000; // 365 Days
         default: return 60000;
     }
 }
@@ -742,9 +630,6 @@ function getCandleStart(tf, now) {
     } else if (tf === '6mo') {
         const month = d.getMonth() < 6 ? 0 : 6;
         return new Date(d.getFullYear(), month, 1).getTime();
-    } else if (tf === '3mo') {
-        const month = Math.floor(d.getMonth() / 3) * 3;
-        return new Date(d.getFullYear(), month, 1).getTime();
     } else if (tf === '1mo') {
         return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
     } else if (tf === '1w') {
@@ -779,15 +664,6 @@ function getDeterministicCandleTimes(tf, now, count) {
             const totalHalfMonths = (currentYear * 2 + (currentHalf === 0 ? 0 : 1)) - (count - 1 - i);
             const year = Math.floor(totalHalfMonths / 2);
             const month = (totalHalfMonths % 2) * 6;
-            times.push(new Date(year, month, 1).getTime());
-        }
-    } else if (tf === '3mo') {
-        const currentYear = d.getFullYear();
-        const currentQuarter = Math.floor(d.getMonth() / 3);
-        for (let i = 0; i < count; i++) {
-            const totalQuarters = (currentYear * 4 + currentQuarter) - (count - 1 - i);
-            const year = Math.floor(totalQuarters / 4);
-            const month = (totalQuarters % 4) * 3;
             times.push(new Date(year, month, 1).getTime());
         }
     } else if (tf === '1mo') {
@@ -1002,13 +878,13 @@ function calculateEMA20(candles) {
 function fmtDate(timestamp, tf) {
     const d = new Date(timestamp);
     const p = n => String(n).padStart(2, '0');
-    if (['1T', '10T', '100T', '1000T', '1s', '5s', '10s', '15s', '30s', '45s', '1m', '2m', '3m', '5m', '10m', '15m', '30m', '45m', '1R', '10R', '100R', '1000R'].includes(tf)) {
+    if (['1s', '1m', '5m'].includes(tf)) {
         return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-    } else if (['1h', '2h', '3h', '4h'].includes(tf)) {
+    } else if (['1h', '4h'].includes(tf)) {
         return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
     } else if (['1d', '1w'].includes(tf)) {
         return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-    } else if (['1mo', '3mo', '6mo'].includes(tf)) {
+    } else if (['1mo', '6mo'].includes(tf)) {
         return `${d.getFullYear()}-${p(d.getMonth() + 1)}`;
     } else if (tf === '12mo') {
         return `${d.getFullYear()}`;
@@ -1194,7 +1070,7 @@ function draw() {
     ctx.textBaseline = 'middle';
     ctx.fillText('$' + currentPrice.toFixed(2), width - margin.right + 2 + badgeW / 2, yLive);
     
-    // 6. Handle hover interactions and EMA values
+    // 6. Handle hover interactions
     let statsCandle = visibleCandles[visibleCandles.length - 1];
     let isHoveringActive = false;
     
@@ -1208,18 +1084,6 @@ function draw() {
         }
     } else {
         hoverIndex = -1;
-    }
-    
-    // Synchronously update the EMA 20 indicators and parameters
-    const activeEmaIndex = isHoveringActive ? (fullStartIndex + hoverIndex) : (chartCandles.length - 1);
-    const activeEmaVal = emaValues[activeEmaIndex];
-    const emaValEl = document.getElementById('ema-val');
-    if (emaValEl) {
-        if (activeEmaVal !== null && activeEmaVal !== undefined) {
-            emaValEl.textContent = activeEmaVal.toFixed(2);
-        } else {
-            emaValEl.textContent = 'n/a';
-        }
     }
     
     // 7. Draw crosshair guidelines and tooltip
