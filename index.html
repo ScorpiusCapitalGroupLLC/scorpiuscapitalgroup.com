@@ -422,8 +422,8 @@
                 <span class="live-dot"></span>
             </div>
             <span class="ticker-label-assets font-display">TOTAL ASSETS:</span>
-            <span class="ticker-val-v" id="market-cap-ticker">0</span>
-            <span class="ticker-rate-v" id="rate-ticker">0/s</span>
+            <span class="ticker-val-v" id="market-cap-ticker" title="USD">$0</span>
+            <span class="ticker-rate-v" id="rate-ticker">+$0/s</span>
         </div>
     </div>
 
@@ -833,6 +833,52 @@ function fmtDate(timestamp, tf) {
     }
 }
 
+// Compute standard equidistant "nice" scale ticks (powers of 10 * [1, 2, 5])
+function computeNiceScale(minVal, maxVal, targetSteps = 5) {
+    if (minVal === maxVal) {
+        minVal = minVal * 0.99 || -1;
+        maxVal = maxVal * 1.01 || 1;
+    }
+    const span = maxVal - minVal;
+    const rawMin = Math.max(0.0001, minVal - span * 0.10);
+    const rawMax = maxVal + span * 0.10;
+    const rawRange = rawMax - rawMin;
+
+    const roughStep = rawRange / targetSteps;
+    const exponent = Math.floor(Math.log10(roughStep));
+    const fraction = roughStep / Math.pow(10, exponent);
+
+    let niceFraction;
+    if (fraction <= 1.4) {
+        niceFraction = 1;
+    } else if (fraction <= 3.2) {
+        niceFraction = 2;
+    } else if (fraction <= 7.0) {
+        niceFraction = 5;
+    } else {
+        niceFraction = 10;
+    }
+
+    const step = niceFraction * Math.pow(10, exponent);
+    let yMin = Math.floor(rawMin / step) * step;
+    let yMax = Math.ceil(rawMax / step) * step;
+
+    if (yMin >= minVal) yMin -= step;
+    if (yMax <= maxVal) yMax += step;
+
+    const decimals = Math.max(2, -Math.floor(Math.log10(step)));
+    const precision = Math.max(0, -exponent + 2);
+    yMin = parseFloat(yMin.toFixed(precision));
+    yMax = parseFloat(yMax.toFixed(precision));
+
+    const count = Math.round((yMax - yMin) / step);
+    const ticks = [];
+    for (let i = 0; i <= count; i++) {
+        ticks.push(parseFloat((yMin + i * step).toFixed(precision)));
+    }
+    return { yMin, yMax, step, decimals, ticks };
+}
+
 function draw() {
     ctx.clearRect(0, 0, width, height);
     if (chartCandles.length === 0) return;
@@ -857,27 +903,26 @@ function draw() {
     
     let minLow = Math.min(...visibleCandles.map(c => c.low));
     let maxHigh = Math.max(...visibleCandles.map(c => c.high));
-    if (minLow === maxHigh) {
-        minLow *= 0.99;
-        maxHigh *= 1.01;
-    }
-    const pad = (maxHigh - minLow) * 0.15;
-    const yMin = Math.max(0.01, minLow - pad);
-    const yMax = maxHigh + pad;
+    
+    // Compute strictly equidistant financial price scale and ticks
+    const targetSteps = Math.max(3, Math.min(8, Math.floor(chartH / 85)));
+    const yScale = computeNiceScale(minLow, maxHigh, targetSteps);
+    const yMin = yScale.yMin;
+    const yMax = yScale.yMax;
     
     const visibleCountForSpace = Math.max(25, visibleCandles.length);
     const rightOffset = visibleCountForSpace - visibleCandles.length;
     const candleSpace = chartW / visibleCountForSpace;
     const candleW = candleSpace * 0.7;
     
-    // 1. Horizontal gridlines and Y-axis price labels
-    const gridSteps = 5;
+    // 1. Horizontal gridlines and Y-axis price labels (Strictly equidistant standard step)
     ctx.font = '11px "Roboto", sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     
-    for (let i = 0; i <= gridSteps; i++) {
-        const y = Math.floor(margin.top + i * (chartH / gridSteps)) + 0.5;
+    yScale.ticks.forEach(val => {
+        const y = Math.floor(margin.top + chartH - (val - yMin) / (yMax - yMin) * chartH) + 0.5;
+        if (y < margin.top - 1 || y > baseY + 1) return;
         
         ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
@@ -888,10 +933,9 @@ function draw() {
         ctx.stroke();
         ctx.setLineDash([]);
         
-        const val = yMax - i * (yMax - yMin) / gridSteps;
         ctx.fillStyle = gridTextColor;
-        ctx.fillText('$' + val.toFixed(2), width - margin.right + 45, y);
-    }
+        ctx.fillText('$' + val.toFixed(yScale.decimals), width - margin.right + 45, y);
+    });
     
     // 2. Draw vertical timeline
     const labelStep = Math.max(1, Math.ceil(visibleCandles.length / (width < 768 ? 4 : 8)));
@@ -1008,7 +1052,7 @@ function draw() {
     ctx.font = '10px "Roboto", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('$' + currentPrice.toFixed(2), width - margin.right + 2 + badgeW / 2, yLive);
+    ctx.fillText('$' + currentPrice.toFixed(Math.max(2, yScale.decimals)), width - margin.right + 2 + badgeW / 2, yLive);
     
     // 6. Handle hover interactions
     let statsCandle = visibleCandles[visibleCandles.length - 1];
@@ -1052,7 +1096,7 @@ function draw() {
         ctx.font = '10px "Roboto", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('$' + hoverPrice.toFixed(2), width - margin.right + 2 + badgeW / 2, mouseY);
+        ctx.fillText('$' + hoverPrice.toFixed(Math.max(2, yScale.decimals)), width - margin.right + 2 + badgeW / 2, mouseY);
         
         
         const timeStr = fmtDate(statsCandle.time, activeTimeframe);
@@ -1179,15 +1223,16 @@ function updateTicker() {
     const fundFixed = fundValue.toFixed(fundDecimals);
     const [fundInt, fundDec] = fundFixed.split('.');
     const formattedFundInt = fundInt.replace(/\B(?=(\d{3})+(?!\d))/g, "<span style='display:inline-block; width:0.12em;'></span>");
-    const formattedMC = fundDec ? `${formattedFundInt}.${fundDec}` : formattedFundInt;
+    const formattedMC = '$' + (fundDec ? `${formattedFundInt}.${fundDec}` : formattedFundInt);
 
     // Format rate of drift
     if (!isFinite(valuePerSecond) || valuePerSecond === 0) {
-        lastRateFormatted = "0/s";
+        lastRateFormatted = "+$0/s";
     } else {
         const abs = Math.abs(valuePerSecond);
         let dPlaces = Math.max(2, Math.min(Math.ceil(-Math.log10(abs)) + 1, 12));
-        lastRateFormatted = "+" + valuePerSecond.toFixed(dPlaces) + "/s";
+        const sign = valuePerSecond >= 0 ? "+$" : "-$";
+        lastRateFormatted = sign + abs.toFixed(dPlaces) + "/s";
     }
 
     if (formattedMC !== lastMCFormatted) {
