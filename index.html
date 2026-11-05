@@ -725,7 +725,7 @@ function updateActiveCandle(now) {
             close: currentPrice,
             volume: Math.random() * 120 + 20
         });
-        if (chartCandles.length > 200) {
+        if (chartCandles.length > 600) {
             chartCandles.shift();
         }
     }
@@ -792,6 +792,13 @@ function resize() {
     canvas.style.width = width + 'px';
     canvas.style.height = height + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    
+    // Auto-replenish history if screen expanded wider than buffer
+    const chartW = Math.max(100, width - margin.left - margin.right);
+    const requiredCandles = Math.floor(chartW / (mobile ? 11 : 14));
+    if (chartCandles.length > 0 && chartCandles.length < requiredCandles) {
+        switchTimeframe(activeTimeframe);
+    }
 }
 
 function calculateEMA20(candles) {
@@ -898,7 +905,10 @@ function draw() {
     const chartH = Math.max(60, height - margin.top - margin.bottom);
     const baseY = margin.top + chartH;
     
-    const showCount = Math.min(chartCandles.length, width < 768 ? 40 : 85);
+    // Responsive candle count: preserve candle width/spacing and show more/fewer candles on resize
+    const targetSpace = width < 768 ? 11 : 14;
+    const maxVisibleForWidth = Math.max(15, Math.floor(chartW / targetSpace));
+    const showCount = Math.min(chartCandles.length, maxVisibleForWidth);
     const visibleCandles = chartCandles.slice(-showCount);
     
     let minLow = Math.min(...visibleCandles.map(c => c.low));
@@ -910,10 +920,9 @@ function draw() {
     const yMin = yScale.yMin;
     const yMax = yScale.yMax;
     
-    const visibleCountForSpace = Math.max(25, visibleCandles.length);
-    const rightOffset = visibleCountForSpace - visibleCandles.length;
-    const candleSpace = chartW / visibleCountForSpace;
-    const candleW = candleSpace * 0.7;
+    const candleSpace = chartW / maxVisibleForWidth;
+    const candleW = Math.max(2, Math.round(candleSpace * 0.68));
+    const rightOffset = maxVisibleForWidth - visibleCandles.length;
     
     // 1. Horizontal gridlines and Y-axis price labels (Strictly equidistant standard step)
     ctx.font = '11px "Roboto", sans-serif';
@@ -1131,8 +1140,8 @@ function switchTimeframe(tf) {
         });
     }
     
-    // Generate fixed length of deterministic historical data
-    const count = 120;
+    // Generate adaptive length of deterministic historical data (covers any screen width)
+    const count = Math.max(350, Math.ceil((window.innerWidth || 1920) / 10));
     const now = Date.now();
     
     // Pre-calculate current unit price to initialize the active candle and prevent page flickering
