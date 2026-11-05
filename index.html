@@ -328,49 +328,52 @@
             footer { padding: 0 48px; font-size: 12px; }
         }
         @media (max-width: 768px) {
-            header { padding: 20px 15px 20px 16px; }
+            header { padding: 16px 16px; }
             .hero-center {
-                top: 76px;
+                top: 68px;
                 left: 16px;
             }
             .chart-controls {
-                top: 76px;
+                top: 14px;
                 right: 16px;
             }
         }
         @media (max-width: 580px) {
-            header { padding: 18px 14px; }
+            header { padding: 14px 14px; }
             .brand {
-                font-size: 15px;
+                font-size: 14.5px;
                 letter-spacing: 0;
                 overflow: hidden;
                 text-overflow: ellipsis;
-                min-width: 0;
+                white-space: nowrap;
+                max-width: calc(100vw - 110px);
             }
             .hero-center {
-                top: 60px;
+                top: 48px;
                 left: 14px;
                 max-width: calc(100vw - 28px);
             }
-            .ticker-header { flex-wrap: wrap; gap: 6px 8px; }
+            .ticker-header { flex-wrap: nowrap; gap: 6px; }
             .chart-controls {
-                top: 116px;
-                left: 14px;
-                right: auto;
+                top: 12px;
+                right: 14px;
+                left: auto;
             }
             .dropdown-menu-panel {
-                left: 0;
-                right: auto;
+                right: 0;
+                left: auto;
             }
             footer {
-                flex-direction: column;
-                height: auto;
-                padding: 12px;
-                gap: 8px;
-                text-align: center;
+                flex-direction: row;
+                height: 34px;
+                min-height: 34px;
+                padding: 0 14px;
+                justify-content: center;
+                align-items: center;
+                font-size: 9.5px;
             }
             .footer-time {
-                margin-left: 0;
+                display: none; /* Hide UTC on narrow screens to guarantee single-line slim footer */
             }
         }
     </style>
@@ -782,10 +785,10 @@ function resize() {
     const mobile = width < 768;
     const smallMobile = width < 580;
     margin = {
-        left: mobile ? 12 : 48,
+        left: mobile ? 14 : 48,
         right: mobile ? 60 : 80,
-        top: smallMobile ? 168 : (mobile ? 128 : 160),
-        bottom: mobile ? 70 : 80
+        top: smallMobile ? 96 : (mobile ? 116 : 160),
+        bottom: mobile ? 46 : 80
     };
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
@@ -946,9 +949,8 @@ function draw() {
         ctx.fillText('$' + val.toFixed(yScale.decimals), width - margin.right + 45, y);
     });
     
-    // 2. Draw vertical timeline
+    // 2. Draw vertical timeline with boundary edge-clamping protection
     const labelStep = Math.max(1, Math.ceil(visibleCandles.length / (width < 768 ? 4 : 8)));
-    ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = timelineTextColor;
     ctx.strokeStyle = gridColor;
@@ -962,7 +964,20 @@ function draw() {
             ctx.lineTo(x, baseY);
             ctx.stroke();
             
-            ctx.fillText(fmtDate(c.time, activeTimeframe), x, baseY + 12);
+            const dateStr = fmtDate(c.time, activeTimeframe);
+            const textW = ctx.measureText(dateStr).width;
+            
+            // Edge clamping: prevent leftmost and rightmost date labels from being truncated
+            if (x - textW / 2 < margin.left) {
+                ctx.textAlign = 'left';
+                ctx.fillText(dateStr, margin.left, baseY + 12);
+            } else if (x + textW / 2 > width - margin.right) {
+                ctx.textAlign = 'right';
+                ctx.fillText(dateStr, width - margin.right, baseY + 12);
+            } else {
+                ctx.textAlign = 'center';
+                ctx.fillText(dateStr, x, baseY + 12);
+            }
         }
     });
     
