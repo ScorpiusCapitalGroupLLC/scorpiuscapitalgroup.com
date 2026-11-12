@@ -782,16 +782,21 @@ function calculateEMA20(candles) {
     const period = 20;
     const k = 2 / (period + 1);
     const emaValues = new Array(candles.length).fill(null);
-    
+
+    const firstDataIdx = candles.findIndex(c => !c.isEmpty);
+    if (firstDataIdx === -1) return emaValues;
+
+    const availableCount = candles.length - firstDataIdx;
+    const initialCount = Math.min(period, availableCount);
     let sum = 0;
-    const initialCount = Math.min(period, candles.length);
     for (let i = 0; i < initialCount; i++) {
-        sum += candles[i].close;
+        sum += candles[firstDataIdx + i].close;
     }
+    const emaStartIdx = firstDataIdx + initialCount - 1;
     let currentEma = sum / initialCount;
-    emaValues[initialCount - 1] = currentEma;
-    
-    for (let i = initialCount; i < candles.length; i++) {
+    emaValues[emaStartIdx] = currentEma;
+
+    for (let i = emaStartIdx + 1; i < candles.length; i++) {
         currentEma = candles[i].close * k + currentEma * (1 - k);
         emaValues[i] = currentEma;
     }
@@ -918,9 +923,11 @@ function draw() {
     const maxVisibleForWidth = Math.max(15, Math.floor(chartW / targetSpace));
     const showCount = Math.min(chartCandles.length, maxVisibleForWidth);
     const visibleCandles = chartCandles.slice(-showCount);
-    
-    let minLow = Math.min(...visibleCandles.map(c => c.low));
-    let maxHigh = Math.max(...visibleCandles.map(c => c.high));
+    const dataCandles = visibleCandles.filter(c => !c.isEmpty);
+    if (dataCandles.length === 0) return;
+
+    let minLow = Math.min(...dataCandles.map(c => c.low));
+    let maxHigh = Math.max(...dataCandles.map(c => c.high));
     
     // Compute strictly equidistant financial price scale and ticks
     const targetSteps = Math.max(3, Math.min(8, Math.floor(chartH / 85)));
@@ -980,10 +987,11 @@ function draw() {
     const sampleDateW = ctx.measureText(fmtDate(visibleCandles[visibleCandles.length - 1].time, activeTimeframe)).width;
     const widthStep = Math.max(1, Math.ceil((sampleDateW + 24) / candleSpace));
     const labelStep = Math.max(1, densityStep, widthStep);
+    const startOffset = Math.min(Math.floor(labelStep / 2), Math.ceil(Math.max(0, (sampleDateW - candleW) / 2) / candleSpace));
     let lastLabelRight = -Infinity;
     
     visibleCandles.forEach((c, i) => {
-        if (i % labelStep !== 0) return;
+        if ((i - startOffset) < 0 || (i - startOffset) % labelStep !== 0) return;
 
         const k = i + rightOffset;
         const x = margin.left + k * candleSpace + candleW / 2;
@@ -1021,6 +1029,7 @@ function draw() {
     
     // 3. Draw candle bodies and wicks
     visibleCandles.forEach((c, i) => {
+        if (c.isEmpty) return;
         const k = i + rightOffset;
         const x = margin.left + k * candleSpace;
         const cx = x + candleW / 2;
@@ -1205,8 +1214,9 @@ function switchTimeframe(tf) {
         const stepTime = candleTimes[i];
         const nextStepTime = getNextCandleTime(tf, stepTime);
         
-        // Skip generation if before start date (rendering charts after listing day)
-        if (nextStepTime < firstTimestamp) {
+        // Retain pre-listing timeline dates while leaving candlestick data empty
+        if (nextStepTime < firstTimestamp && i < count - 1) {
+            chartCandles.push({ time: stepTime, isEmpty: true });
             continue;
         }
         
