@@ -7,15 +7,11 @@
 
     <script>
         // =========================================================================
-        // [Core Data Configuration Center] - Please input the total token supply and total assets data here.
+        // [Core Data Configuration Center] - Total Assets (USD) historical & projected data.
         // =========================================================================
 
-        // 1. Total Token Supply (modify this when a stock split occurs. E.g., change 100 to 1000 or any other value)
-        //    Formula: Equity Token Price (PRICE) = Total Assets (MKT CAP) / Total Token Supply
-        const SCOP_TOTAL_TOKENS = 100;
-
-        // 2. Total Assets (Total Market Cap) Historical Data and Future Projections (Format: YYYYMMDD, Value)
-        //    You can add the next month's date and projected value at the bottom at any time.
+        // Total Assets (USD) Historical Data and Future Projections (Format: YYYYMMDD, Value)
+        // You can add the next month's date and projected value at the bottom at any time.
         const AUM_CSV_TEXT = `Date,Value
 20260612,100
 20260618,101
@@ -384,7 +380,7 @@
     <!-- Candlestick Chart Background -->
     <div class="layer z0">
         <canvas id="chart-canvas" role="img"
-                aria-label="Scorpius Capital Group SCOP equity token performance candle chart"></canvas>
+                aria-label="Scorpius Capital Group Total Assets USD performance candle chart"></canvas>
     </div>
 
     <!-- Header -->
@@ -645,12 +641,12 @@ function getDeterministicCandleTimes(tf, now, count) {
     return times;
 }
 
-// Generate deterministic candlestick data based on timestamp (Displayed Price = Total Assets / Total Tokens)
+// Generate deterministic candlestick data based on timestamp (Displayed Value = Total Assets in USD)
 function generateCandle(candleTime, tf, nextTime) {
     const nextT = nextTime || (candleTime + getIntervalMs(tf));
     const candleInterval = nextT - candleTime;
-    const openVal = getDeterministicPrice(candleTime) / SCOP_TOTAL_TOKENS;
-    const closeVal = getDeterministicPrice(nextT) / SCOP_TOTAL_TOKENS;
+    const openVal = getDeterministicPrice(candleTime);
+    const closeVal = getDeterministicPrice(nextT);
     
     let highVal = Math.max(openVal, closeVal);
     let lowVal = Math.min(openVal, closeVal);
@@ -658,7 +654,7 @@ function generateCandle(candleTime, tf, nextTime) {
     const samples = 5;
     for (let s = 1; s < samples; s++) {
         const sampleTime = candleTime + (s / samples) * candleInterval;
-        const samplePrice = getDeterministicPrice(sampleTime) / SCOP_TOTAL_TOKENS;
+        const samplePrice = getDeterministicPrice(sampleTime);
         if (samplePrice > highVal) highVal = samplePrice;
         if (samplePrice < lowVal) lowVal = samplePrice;
     }
@@ -717,7 +713,7 @@ function updateActiveCandle(now) {
             nextTime = lastCandle.time + getIntervalMs(tf);
         }
         
-        lastCandle.close = getDeterministicPrice(nextTime) / SCOP_TOTAL_TOKENS;
+        lastCandle.close = getDeterministicPrice(nextTime);
         lastCandle.high = Math.max(lastCandle.high, lastCandle.close);
         lastCandle.low = Math.min(lastCandle.low, lastCandle.close);
         chartCandles.push({
@@ -747,7 +743,7 @@ function priceTick() {
     liveJitter = liveJitter * 0.85 + (Math.random() - 0.5) * jitterVol * baseFund;
     
     const currentFund = baseFund + liveJitter;
-    currentPrice = currentFund / SCOP_TOTAL_TOKENS;
+    currentPrice = currentFund;
     if (currentPrice < 0.00000001) currentPrice = 0.00000001;
     
     updateActiveCandle(now);
@@ -769,7 +765,7 @@ scheduleNextPriceTick();
 const canvas = document.getElementById('chart-canvas');
 const ctx = canvas.getContext('2d');
 
-let margin = { left: 48, right: 80, top: 210, bottom: 80 }; 
+let margin = { left: 48, right: 84, top: 210, bottom: 80 }; 
 let width, height, dpr;
 let hoverIndex = -1;
 let mouseX = -1;
@@ -786,7 +782,7 @@ function resize() {
     const smallMobile = width < 580;
     margin = {
         left: mobile ? 14 : 48,
-        right: mobile ? 60 : 80,
+        right: mobile ? 70 : 84,
         top: smallMobile ? 96 : (mobile ? 116 : 160),
         bottom: mobile ? 46 : 80
     };
@@ -876,8 +872,7 @@ function computeNiceScale(minVal, maxVal, targetSteps = 5) {
     if (yMin >= minVal) yMin -= step;
     if (yMax <= maxVal) yMax += step;
 
-    const decimals = Math.max(2, -Math.floor(Math.log10(step)));
-    const precision = Math.max(0, -exponent + 2);
+    const precision = Math.min(20, Math.max(0, -exponent + 2));
     yMin = parseFloat(yMin.toFixed(precision));
     yMax = parseFloat(yMax.toFixed(precision));
 
@@ -886,7 +881,42 @@ function computeNiceScale(minVal, maxVal, targetSteps = 5) {
     for (let i = 0; i <= count; i++) {
         ticks.push(parseFloat((yMin + i * step).toFixed(precision)));
     }
-    return { yMin, yMax, step, decimals, ticks };
+    return { yMin, yMax, step, ticks };
+}
+
+// Format dollar asset value using industry-standard precision and financial scale suffixes (K, M, B, T)
+function formatAxisValue(val, step, isBadge = false) {
+    const absV = Math.abs(val);
+    let divisor = 1;
+    let suffix = '';
+    if (absV >= 1e15) { divisor = 1e15; suffix = 'Q'; }
+    else if (absV >= 1e12) { divisor = 1e12; suffix = 'T'; }
+    else if (absV >= 1e9) { divisor = 1e9; suffix = 'B'; }
+    else if (absV >= 1e6) { divisor = 1e6; suffix = 'M'; }
+    else if (absV >= 1e4) { divisor = 1e3; suffix = 'K'; }
+
+    const scaledVal = val / divisor;
+    const scaledStep = step > 0 ? (step / divisor) : 1;
+    const neededDec = scaledStep > 0 ? Math.max(0, -Math.floor(Math.log10(scaledStep))) : 2;
+
+    if (divisor === 1) {
+        const dec = absV < 1000 ? Math.max(2, neededDec) : ((isBadge || step < 1) ? Math.max(2, neededDec) : 0);
+        return '$' + scaledVal.toLocaleString('en-US', {
+            minimumFractionDigits: dec,
+            maximumFractionDigits: dec
+        });
+    } else {
+        let dec;
+        if (isBadge) {
+            dec = Math.max(2, neededDec);
+        } else if (scaledStep < 1) {
+            dec = Math.max(2, neededDec);
+        } else {
+            const isExactInt = Math.abs(scaledVal - Math.round(scaledVal)) < 1e-9;
+            dec = isExactInt ? 0 : Math.max(1, neededDec);
+        }
+        return '$' + scaledVal.toFixed(dec) + suffix;
+    }
 }
 
 function draw() {
@@ -927,9 +957,19 @@ function draw() {
     const candleW = Math.max(2, Math.round(candleSpace * 0.68));
     const rightOffset = maxVisibleForWidth - visibleCandles.length;
     
-    // 1. Horizontal gridlines and Y-axis price labels (Strictly equidistant standard step)
+    // Measure labels to size price badge cleanly within right margin
     ctx.font = '11px "Roboto", sans-serif';
-    ctx.textAlign = 'right';
+    const liveBadgeText = formatAxisValue(currentPrice, yScale.step, true);
+    let maxLabelW = ctx.measureText(liveBadgeText).width;
+    yScale.ticks.forEach(val => {
+        const w = ctx.measureText(formatAxisValue(val, yScale.step, false)).width;
+        if (w > maxLabelW) maxLabelW = w;
+    });
+    const badgeW = Math.min(margin.right - 6, Math.max(58, Math.ceil(maxLabelW + 14)));
+    const axisCenterX = width - margin.right + 2 + badgeW / 2;
+
+    // 1. Horizontal gridlines and Y-axis price labels (Strictly equidistant standard step)
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
     yScale.ticks.forEach(val => {
@@ -946,7 +986,7 @@ function draw() {
         ctx.setLineDash([]);
         
         ctx.fillStyle = gridTextColor;
-        ctx.fillText('$' + val.toFixed(yScale.decimals), width - margin.right + 45, y);
+        ctx.fillText(formatAxisValue(val, yScale.step, false), axisCenterX, y);
     });
     
     // 2. Draw vertical timeline with boundary edge-clamping protection
@@ -1065,7 +1105,6 @@ function draw() {
     ctx.setLineDash([]);
     
     ctx.fillStyle = badgeBgColor;
-    const badgeW = 60;
     const badgeH = 18;
     ctx.fillRect(width - margin.right + 2, yLive - badgeH / 2, badgeW, badgeH);
     ctx.strokeStyle = goldColor;
@@ -1076,7 +1115,7 @@ function draw() {
     ctx.font = '10px "Roboto", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('$' + currentPrice.toFixed(Math.max(2, yScale.decimals)), width - margin.right + 2 + badgeW / 2, yLive);
+    ctx.fillText(liveBadgeText, axisCenterX, yLive);
     
     // 6. Handle hover interactions
     let statsCandle = visibleCandles[visibleCandles.length - 1];
@@ -1120,7 +1159,7 @@ function draw() {
         ctx.font = '10px "Roboto", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('$' + hoverPrice.toFixed(Math.max(2, yScale.decimals)), width - margin.right + 2 + badgeW / 2, mouseY);
+        ctx.fillText(formatAxisValue(hoverPrice, yScale.step, true), axisCenterX, mouseY);
         
         
         const timeStr = fmtDate(statsCandle.time, activeTimeframe);
@@ -1160,7 +1199,7 @@ function switchTimeframe(tf) {
     const now = Date.now();
     
     // Pre-calculate current unit price to initialize the active candle and prevent page flickering
-    currentPrice = getDeterministicPrice(now) / SCOP_TOTAL_TOKENS;
+    currentPrice = getDeterministicPrice(now);
     
     const candleTimes = getDeterministicCandleTimes(tf, now, count);
     const firstTimestamp = FULL_DATA[0].timestamp;
@@ -1197,7 +1236,7 @@ function switchTimeframe(tf) {
         
         if (i === count - 1) {
             // Directly render the active candle with the real-time price
-            const openVal = getDeterministicPrice(stepTime) / SCOP_TOTAL_TOKENS;
+            const openVal = getDeterministicPrice(stepTime);
             chartCandles.push({
                 time: stepTime,
                 open: openVal,
