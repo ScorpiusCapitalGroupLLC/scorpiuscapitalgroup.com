@@ -402,9 +402,6 @@
                     <div class="dropdown-option" data-value="1s">1 Sec</div>
                     <div class="dropdown-option active" data-value="1m">1 Min</div>
                     <div class="dropdown-option" data-value="5m">5 Min</div>
-                    <div class="dropdown-option" data-value="1h">1 Hour</div>
-                    <div class="dropdown-option" data-value="4h">4 Hours</div>
-                    <div class="dropdown-option" data-value="1d">1 Day</div>
                     <div class="dropdown-option" data-value="1w">1 Week</div>
                     <div class="dropdown-option" data-value="1mo">1 Month</div>
                     <div class="dropdown-option" data-value="6mo">6 Months</div>
@@ -515,15 +512,25 @@ function getIntervalMs(tf) {
         case '1s': return 1000;
         case '1m': return 60000;
         case '5m': return 300000;
-        case '1h': return 3600000;
-        case '4h': return 14400000;
-        case '1d': return 86400000;
         case '1w': return 604800000;
         case '1mo': return 2592000000;  // 30 Days
         case '6mo': return 15552000000; // 180 Days
         case '12mo': return 31536000000; // 365 Days
         default: return 60000;
     }
+}
+
+function getNextCandleTime(tf, candleTime) {
+    if (tf === '12mo') {
+        return new Date(new Date(candleTime).getFullYear() + 1, 0, 1).getTime();
+    } else if (tf === '6mo') {
+        const d = new Date(candleTime);
+        return new Date(d.getFullYear(), d.getMonth() + 6, 1).getTime();
+    } else if (tf === '1mo') {
+        const d = new Date(candleTime);
+        return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+    }
+    return candleTime + getIntervalMs(tf);
 }
 
 function getVolFactor(tf) {
@@ -577,10 +584,6 @@ function getCandleStart(tf, now) {
         const monday = new Date(d.setDate(diff));
         monday.setHours(0, 0, 0, 0);
         return monday.getTime();
-    } else if (tf === '1d') {
-        const day = new Date(now);
-        day.setHours(0, 0, 0, 0);
-        return day.getTime();
     } else {
         const interval = getIntervalMs(tf);
         return Math.floor(now / interval) * interval;
@@ -622,13 +625,6 @@ function getDeterministicCandleTimes(tf, now, count) {
         const mondayMs = currentMonday.getTime();
         for (let i = 0; i < count; i++) {
             times.push(mondayMs - (count - 1 - i) * 604800000);
-        }
-    } else if (tf === '1d') {
-        const currentDay = new Date(now);
-        currentDay.setHours(0, 0, 0, 0);
-        const dayMs = currentDay.getTime();
-        for (let i = 0; i < count; i++) {
-            times.push(dayMs - (count - 1 - i) * 86400000);
         }
     } else {
         const interval = getIntervalMs(tf);
@@ -692,26 +688,7 @@ function updateActiveCandle(now) {
         if (currentPrice < lastCandle.low) lastCandle.low = currentPrice;
         lastCandle.volume += Math.random() * 2;
     } else if (candleTime > lastCandle.time) {
-        let nextTime;
-        const tf = activeTimeframe;
-        if (tf === '12mo') {
-            nextTime = new Date(new Date(lastCandle.time).getFullYear() + 1, 0, 1).getTime();
-        } else if (tf === '6mo') {
-            const dStep = new Date(lastCandle.time);
-            nextTime = new Date(dStep.getFullYear(), dStep.getMonth() + 6, 1).getTime();
-        } else if (tf === '3mo') {
-            const dStep = new Date(lastCandle.time);
-            nextTime = new Date(dStep.getFullYear(), dStep.getMonth() + 3, 1).getTime();
-        } else if (tf === '1mo') {
-            const dStep = new Date(lastCandle.time);
-            nextTime = new Date(dStep.getFullYear(), dStep.getMonth() + 1, 1).getTime();
-        } else if (tf === '1w') {
-            nextTime = lastCandle.time + 604800000;
-        } else if (tf === '1d') {
-            nextTime = lastCandle.time + 86400000;
-        } else {
-            nextTime = lastCandle.time + getIntervalMs(tf);
-        }
+        const nextTime = getNextCandleTime(activeTimeframe, lastCandle.time);
         
         lastCandle.close = getDeterministicPrice(nextTime);
         lastCandle.high = Math.max(lastCandle.high, lastCandle.close);
@@ -826,9 +803,7 @@ function fmtDate(timestamp, tf) {
     const p = n => String(n).padStart(2, '0');
     if (['1s', '1m', '5m'].includes(tf)) {
         return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-    } else if (['1h', '4h'].includes(tf)) {
-        return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-    } else if (['1d', '1w'].includes(tf)) {
+    } else if (tf === '1w') {
         return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
     } else if (['1mo', '6mo'].includes(tf)) {
         return `${d.getFullYear()}-${p(d.getMonth() + 1)}`;
@@ -966,7 +941,9 @@ function draw() {
         if (w > maxLabelW) maxLabelW = w;
     });
     const badgeW = Math.min(margin.right - 6, Math.max(58, Math.ceil(maxLabelW + 14)));
+    const badgeH = 18;
     const axisCenterX = width - margin.right + 2 + badgeW / 2;
+    const yLive = margin.top + chartH - (currentPrice - yMin) / (yMax - yMin) * chartH;
 
     // 1. Horizontal gridlines and Y-axis price labels (Strictly equidistant standard step)
     ctx.textAlign = 'center';
@@ -985,40 +962,61 @@ function draw() {
         ctx.stroke();
         ctx.setLineDash([]);
         
-        ctx.fillStyle = gridTextColor;
-        ctx.fillText(formatAxisValue(val, yScale.step, false), axisCenterX, y);
+        // Suppress tick text when covered by the live price badge to prevent overlap
+        if (Math.abs(y - yLive) >= badgeH * 0.85) {
+            ctx.fillStyle = gridTextColor;
+            ctx.fillText(formatAxisValue(val, yScale.step, false), axisCenterX, y);
+        }
     });
     
-    // 2. Draw vertical timeline with boundary edge-clamping protection
-    const labelStep = Math.max(1, Math.ceil(visibleCandles.length / (width < 768 ? 4 : 8)));
+    // 2. Draw vertical timeline with width-aware spacing and pixel collision prevention
+    ctx.font = '11px "Roboto", sans-serif';
     ctx.textBaseline = 'top';
     ctx.fillStyle = timelineTextColor;
     ctx.strokeStyle = gridColor;
+
+    const targetMaxLabels = width < 768 ? 4 : 8;
+    const densityStep = Math.ceil(maxVisibleForWidth / targetMaxLabels);
+    const sampleDateW = ctx.measureText(fmtDate(visibleCandles[visibleCandles.length - 1].time, activeTimeframe)).width;
+    const widthStep = Math.max(1, Math.ceil((sampleDateW + 24) / candleSpace));
+    const labelStep = Math.max(1, densityStep, widthStep);
+    let lastLabelRight = -Infinity;
     
     visibleCandles.forEach((c, i) => {
+        if (i % labelStep !== 0) return;
+
         const k = i + rightOffset;
         const x = margin.left + k * candleSpace + candleW / 2;
-        if (i % labelStep === 0) {
-            ctx.beginPath();
-            ctx.moveTo(x, margin.top);
-            ctx.lineTo(x, baseY);
-            ctx.stroke();
-            
-            const dateStr = fmtDate(c.time, activeTimeframe);
-            const textW = ctx.measureText(dateStr).width;
-            
-            // Edge clamping: prevent leftmost and rightmost date labels from being truncated
-            if (x - textW / 2 < margin.left) {
-                ctx.textAlign = 'left';
-                ctx.fillText(dateStr, margin.left, baseY + 12);
-            } else if (x + textW / 2 > width - margin.right) {
-                ctx.textAlign = 'right';
-                ctx.fillText(dateStr, width - margin.right, baseY + 12);
-            } else {
-                ctx.textAlign = 'center';
-                ctx.fillText(dateStr, x, baseY + 12);
-            }
+        const dateStr = fmtDate(c.time, activeTimeframe);
+        const textW = ctx.measureText(dateStr).width;
+
+        // Edge clamping: prevent leftmost and rightmost date labels from being truncated
+        let align = 'center';
+        let drawX = x;
+        let leftEdge = x - textW / 2;
+        let rightEdge = x + textW / 2;
+        if (leftEdge < margin.left) {
+            align = 'left';
+            drawX = margin.left;
+            leftEdge = margin.left;
+            rightEdge = margin.left + textW;
+        } else if (rightEdge > width - margin.right) {
+            align = 'right';
+            drawX = width - margin.right;
+            leftEdge = drawX - textW;
+            rightEdge = drawX;
         }
+
+        if (leftEdge < lastLabelRight + 16) return;
+        lastLabelRight = rightEdge;
+
+        ctx.beginPath();
+        ctx.moveTo(x, margin.top);
+        ctx.lineTo(x, baseY);
+        ctx.stroke();
+
+        ctx.textAlign = align;
+        ctx.fillText(dateStr, drawX, baseY + 12);
     });
     
     // 3. Draw candle bodies and wicks
@@ -1093,8 +1091,6 @@ function draw() {
     }
     
     // 5. Draw current price dashed line and label badge
-    const yLive = margin.top + chartH - (currentPrice - yMin) / (yMax - yMin) * chartH;
-    
     ctx.strokeStyle = priceLineColor;
     ctx.setLineDash([4, 4]);
     ctx.lineWidth = 1;
@@ -1105,7 +1101,6 @@ function draw() {
     ctx.setLineDash([]);
     
     ctx.fillStyle = badgeBgColor;
-    const badgeH = 18;
     ctx.fillRect(width - margin.right + 2, yLive - badgeH / 2, badgeW, badgeH);
     ctx.strokeStyle = goldColor;
     ctx.lineWidth = 1;
@@ -1166,10 +1161,11 @@ function draw() {
         ctx.font = '10px "Roboto", sans-serif';
         const timeBadgeW = ctx.measureText(timeStr).width + 12;
         const timeBadgeH = 18;
+        const timeBadgeX = Math.max(margin.left, Math.min(width - margin.right - timeBadgeW, hoverX - timeBadgeW / 2));
         ctx.fillStyle = badgeBgColor;
-        ctx.fillRect(hoverX - timeBadgeW / 2, baseY + 2, timeBadgeW, timeBadgeH);
+        ctx.fillRect(timeBadgeX, baseY + 2, timeBadgeW, timeBadgeH);
         ctx.fillStyle = badgeTextColor;
-        ctx.fillText(timeStr, hoverX, baseY + 2 + timeBadgeH / 2);
+        ctx.fillText(timeStr, timeBadgeX + timeBadgeW / 2, baseY + 2 + timeBadgeH / 2);
     }
 }
 
@@ -1203,31 +1199,11 @@ function switchTimeframe(tf) {
     
     const candleTimes = getDeterministicCandleTimes(tf, now, count);
     const firstTimestamp = FULL_DATA[0].timestamp;
-    const interval = getIntervalMs(tf);
     
     chartCandles = [];
     for (let i = 0; i < count; i++) {
         const stepTime = candleTimes[i];
-        
-        let nextStepTime;
-        if (tf === '12mo') {
-            nextStepTime = new Date(new Date(stepTime).getFullYear() + 1, 0, 1).getTime();
-        } else if (tf === '6mo') {
-            const dStep = new Date(stepTime);
-            nextStepTime = new Date(dStep.getFullYear(), dStep.getMonth() + 6, 1).getTime();
-        } else if (tf === '3mo') {
-            const dStep = new Date(stepTime);
-            nextStepTime = new Date(dStep.getFullYear(), dStep.getMonth() + 3, 1).getTime();
-        } else if (tf === '1mo') {
-            const dStep = new Date(stepTime);
-            nextStepTime = new Date(dStep.getFullYear(), dStep.getMonth() + 1, 1).getTime();
-        } else if (tf === '1w') {
-            nextStepTime = stepTime + 604800000;
-        } else if (tf === '1d') {
-            nextStepTime = stepTime + 86400000;
-        } else {
-            nextStepTime = stepTime + interval;
-        }
+        const nextStepTime = getNextCandleTime(tf, stepTime);
         
         // Skip generation if before start date (rendering charts after listing day)
         if (nextStepTime < firstTimestamp) {
